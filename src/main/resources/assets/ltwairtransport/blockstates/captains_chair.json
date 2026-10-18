@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "ltwairtransport:block/captains_chair"
+    },
+    "facing=east": {
+      "model": "ltwairtransport:block/captains_chair",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "ltwairtransport:block/captains_chair",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "ltwairtransport:block/captains_chair",
+      "y": 270
+    }
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.ltw.airtransport.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": ["EntityCollideMixin", "ServerGamePacketListenerMixin"],
+  "injectors": { "defaultRequire": 1 }
+}

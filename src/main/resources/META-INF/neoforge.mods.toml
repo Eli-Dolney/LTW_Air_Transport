@@ -1,0 +1,23 @@
+modLoader="javafml"
+loaderVersion="[4,)"
+license="MIT"
+[[mods]]
+modId="ltwairtransport"
+version="0.1.0"
+displayName="LTW Air Transport"
+authors="LTW"
+description='''Build your own hot-air-balloon airships out of blocks, set up landing pads at your bases and fly (or autopilot) between them.'''
+[[mixins]]
+config="ltwairtransport.mixins.json"
+[[dependencies.ltwairtransport]]
+modId="neoforge"
+type="required"
+versionRange="[21.1.235,21.2)"
+ordering="NONE"
+side="BOTH"
+[[dependencies.ltwairtransport]]
+modId="minecraft"
+type="required"
+versionRange="[1.21.1,1.21.2)"
+ordering="NONE"
+side="BOTH"

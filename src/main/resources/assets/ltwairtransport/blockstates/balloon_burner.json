@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "lit=false": {
+      "model": "ltwairtransport:block/balloon_burner"
+    },
+    "lit=true": {
+      "model": "ltwairtransport:block/balloon_burner_lit"
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "ltwairtransport:block/propeller"
+    },
+    "facing=east": {
+      "model": "ltwairtransport:block/propeller",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "ltwairtransport:block/propeller",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "ltwairtransport:block/propeller",
+      "y": 270
+    }
+  }
+}

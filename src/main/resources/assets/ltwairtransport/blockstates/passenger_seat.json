@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "ltwairtransport:block/passenger_seat"
+    },
+    "facing=east": {
+      "model": "ltwairtransport:block/passenger_seat",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "ltwairtransport:block/passenger_seat",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "ltwairtransport:block/passenger_seat",
+      "y": 270
+    }
+  }
+}
