@@ -16,6 +16,8 @@ public final class AirConfig {
     public static final ModConfigSpec.IntValue CRUISE_CLEARANCE;
     public static final ModConfigSpec.IntValue ROUTE_WAIT_SECONDS;
     public static final ModConfigSpec.BooleanValue CHUNK_LOAD_AUTOPILOT;
+    public static final ModConfigSpec.DoubleValue FARM_GROWTH_MULTIPLIER;
+    public static final ModConfigSpec.IntValue FARM_PLANT_HEIGHT;
 
     static {
         ModConfigSpec.Builder b = new ModConfigSpec.Builder();
@@ -43,6 +45,11 @@ public final class AirConfig {
             .defineInRange("routeWaitSeconds", 30, 0, 3600);
         CHUNK_LOAD_AUTOPILOT = b.comment("Keep chunks loaded around ships on autopilot and ships waiting on a route.")
             .define("chunkLoadAutopilot", true);
+        b.pop().push("farms");
+        FARM_GROWTH_MULTIPLIER = b.comment("How fast plants on a flying ship grow, relative to the randomTickSpeed game rule (1 = same as in the world, 0 = frozen).")
+            .defineInRange("growthMultiplier", 1.0, 0.0, 100.0);
+        FARM_PLANT_HEIGHT = b.comment("Tallest kelp or bamboo column that grows on a flying ship (sugar cane and cactus stop at 3).")
+            .defineInRange("plantHeight", 16, 2, 26);
         b.pop();
         SPEC = b.build();
     }

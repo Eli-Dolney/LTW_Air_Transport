@@ -143,6 +143,47 @@ def propeller_blade(x, y, rnd):
     return jitter((150, 110, 65) if x % 5 else (120, 85, 50), rnd, 6)
 
 
+def harvester_side(x, y, rnd):
+    if x in (0, 15) or y in (0, 15):
+        return jitter((70, 70, 75), rnd, 4)
+    # three rows of saw teeth
+    row = (y - 1) % 5
+    if row < 3 and abs((x % 4) - 1.5) <= 1.5 - row * 0.75:
+        return jitter((215, 218, 225), rnd, 6)
+    return jitter((95, 100, 92), rnd, 5)
+
+
+def harvester_top(x, y, rnd):
+    if x in (0, 15) or y in (0, 15):
+        return jitter((70, 70, 75), rnd, 4)
+    d = ((x - 7.5) ** 2 + (y - 7.5) ** 2) ** 0.5
+    if d < 1.5:
+        return (50, 50, 55, 255)
+    if d < 6 and (abs(x - 7.5) < 1 or abs(y - 7.5) < 1):
+        return jitter((215, 218, 225), rnd, 6)  # spinning blades
+    return jitter((110, 140, 70), rnd, 6)
+
+
+def dryer_side(x, y, rnd):
+    if x in (0, 15) or y in (0, 15):
+        return jitter((70, 70, 75), rnd, 4)
+    if y % 3 == 1 and 2 <= x <= 13:
+        return (35, 35, 38, 255)  # vents
+    return jitter((60, 90, 45), rnd, 6)
+
+
+def dryer_top(x, y, rnd):
+    if x in (0, 15) or y in (0, 15):
+        return jitter((70, 70, 75), rnd, 4)
+    if (x + y) % 4 == 0:
+        return (35, 35, 38, 255)  # grate
+    return jitter((50, 70, 35), rnd, 6)
+
+
+png("block/harvester_side", harvester_side)
+png("block/harvester_top", harvester_top)
+png("block/kelp_dryer_side", dryer_side)
+png("block/kelp_dryer_top", dryer_top)
 png("block/landing_pad_top", pad_top)
 png("block/landing_pad_side", pad_side)
 png("block/pad_beacon_top", beacon_top)
@@ -189,6 +230,10 @@ model("landing_pad", {"parent": "minecraft:block/cube_bottom_top", "textures": {
     "top": f"{NS}:block/landing_pad_top", "bottom": f"{NS}:block/landing_pad_side", "side": f"{NS}:block/landing_pad_side"}})
 model("pad_beacon", {"parent": "minecraft:block/cube_bottom_top", "textures": {
     "top": f"{NS}:block/pad_beacon_top", "bottom": f"{NS}:block/landing_pad_side", "side": f"{NS}:block/pad_beacon_side"}})
+model("harvester", {"parent": "minecraft:block/cube_bottom_top", "textures": {
+    "top": f"{NS}:block/harvester_top", "bottom": f"{NS}:block/harvester_top", "side": f"{NS}:block/harvester_side"}})
+model("kelp_dryer", {"parent": "minecraft:block/cube_bottom_top", "textures": {
+    "top": f"{NS}:block/kelp_dryer_top", "bottom": f"{NS}:block/kelp_dryer_top", "side": f"{NS}:block/kelp_dryer_side"}})
 for c in COLORS:
     model(f"{c}_balloon_envelope", {"parent": "minecraft:block/leaves", "textures": {"all": f"{NS}:block/balloon_envelope"}})
 
@@ -255,6 +300,8 @@ def facing_state(name, extra=""):
 
 simple_state("landing_pad")
 simple_state("pad_beacon")
+simple_state("harvester")
+simple_state("kelp_dryer")
 for c in COLORS:
     simple_state(f"{c}_balloon_envelope")
 # Seat models have the backrest on the south side, so a seat facing north (player looks north) uses y=0.
@@ -268,14 +315,16 @@ write(os.path.join(BS, "balloon_burner.json"), {"variants": {
     "lit=false": {"model": f"{NS}:block/balloon_burner"}, "lit=true": {"model": f"{NS}:block/balloon_burner_lit"}}})
 
 # --- Item models ---------------------------------------------------------------------------------
-for b in ["landing_pad", "pad_beacon", "control_panel", "captains_chair", "passenger_seat", "balloon_burner", "propeller"]:
+for b in ["landing_pad", "pad_beacon", "control_panel", "captains_chair", "passenger_seat", "balloon_burner", "propeller",
+          "harvester", "kelp_dryer"]:
     item_parent(b)
 for c in COLORS:
     item_parent(f"{c}_balloon_envelope")
 write(os.path.join(M, "item", "ship_tracker.json"), {"parent": "minecraft:item/generated", "textures": {"layer0": f"{NS}:item/ship_tracker"}})
 
 # --- Loot tables ---------------------------------------------------------------------------------
-blocks = ["landing_pad", "pad_beacon", "control_panel", "captains_chair", "passenger_seat", "balloon_burner", "propeller"] + [f"{c}_balloon_envelope" for c in COLORS]
+blocks = ["landing_pad", "pad_beacon", "control_panel", "captains_chair", "passenger_seat", "balloon_burner", "propeller",
+          "harvester", "kelp_dryer"] + [f"{c}_balloon_envelope" for c in COLORS]
 for b in blocks:
     write(os.path.join(D, "loot_table", "blocks", b + ".json"), {
         "type": "minecraft:block",
@@ -285,7 +334,8 @@ for b in blocks:
 # --- Tags ----------------------------------------------------------------------------------------
 write(os.path.join(D, "tags", "block", "ship_blacklist.json"), {"values": ["minecraft:bedrock", "minecraft:end_portal_frame", "minecraft:nether_portal", "minecraft:end_portal"]})
 MC = os.path.join(ROOT, "src/main/resources/data/minecraft/tags/block/mineable")
-write(os.path.join(MC, "pickaxe.json"), {"values": [f"{NS}:landing_pad", f"{NS}:pad_beacon", f"{NS}:balloon_burner"]})
+write(os.path.join(MC, "pickaxe.json"), {"values": [f"{NS}:landing_pad", f"{NS}:pad_beacon", f"{NS}:balloon_burner",
+                                                  f"{NS}:harvester", f"{NS}:kelp_dryer"]})
 write(os.path.join(MC, "axe.json"), {"values": [f"{NS}:control_panel", f"{NS}:captains_chair", f"{NS}:passenger_seat", f"{NS}:propeller"]})
 write(os.path.join(D, "tags", "item", "balloon_envelopes.json"), {"values": [f"{NS}:{c}_balloon_envelope" for c in COLORS]})
 
@@ -316,6 +366,10 @@ shaped("white_balloon_envelope", ["SWS", "W W", "SWS"], {"S": "minecraft:string"
 for c in COLORS:
     if c != "white":
         shapeless(f"{c}_balloon_envelope", [f"#{NS}:balloon_envelopes", f"minecraft:{c}_dye"], f"{NS}:{c}_balloon_envelope")
+shaped("harvester", [" S ", "IRI", "IHI"], {"S": "minecraft:shears", "I": "minecraft:iron_ingot", "R": "minecraft:redstone",
+    "H": "minecraft:hopper"}, f"{NS}:harvester")
+shaped("kelp_dryer", ["IBI", "KSK", "III"], {"I": "minecraft:iron_ingot", "B": "minecraft:iron_bars", "K": "minecraft:kelp",
+    "S": "minecraft:smoker"}, f"{NS}:kelp_dryer")
 shapeless("ship_tracker", ["minecraft:compass", "minecraft:redstone", "minecraft:iron_ingot"], f"{NS}:ship_tracker")
 
 print("assets generated")

@@ -9,6 +9,7 @@ import com.ltw.airtransport.block.PadBeaconBlock;
 import com.ltw.airtransport.block.PadBeaconBlockEntity;
 import com.ltw.airtransport.block.PropellerBlock;
 import com.ltw.airtransport.block.SeatBlock;
+import com.ltw.airtransport.block.ShipMachineBlock;
 import com.ltw.airtransport.entity.AirshipEntity;
 import com.ltw.airtransport.item.ShipTrackerItem;
 import com.ltw.airtransport.menu.BurnerMenu;
@@ -72,6 +73,12 @@ public final class AirTransport {
             .noOcclusion().lightLevel(s -> s.getValue(BurnerBlock.LIT) ? 13 : 0)));
     public static final DeferredBlock<PropellerBlock> PROPELLER = BLOCKS.register("propeller",
         () -> new PropellerBlock(BlockBehaviour.Properties.of().mapColor(MapColor.WOOD).strength(1.5f).sound(SoundType.WOOD).noOcclusion()));
+    public static final DeferredBlock<ShipMachineBlock> HARVESTER = BLOCKS.register("harvester",
+        () -> new ShipMachineBlock(BlockBehaviour.Properties.of().mapColor(MapColor.METAL).strength(2.5f).sound(SoundType.METAL),
+            "tooltip.ltwairtransport.harvester"));
+    public static final DeferredBlock<ShipMachineBlock> KELP_DRYER = BLOCKS.register("kelp_dryer",
+        () -> new ShipMachineBlock(BlockBehaviour.Properties.of().mapColor(MapColor.COLOR_GREEN).strength(2.5f).sound(SoundType.METAL),
+            "tooltip.ltwairtransport.kelp_dryer"));
     public static final Map<DyeColor, DeferredBlock<EnvelopeBlock>> ENVELOPES = new EnumMap<>(DyeColor.class);
     static {
         for (DyeColor color : DyeColor.values()) {
@@ -89,6 +96,8 @@ public final class AirTransport {
     public static final DeferredItem<BlockItem> PASSENGER_SEAT_ITEM = ITEMS.registerSimpleBlockItem(PASSENGER_SEAT);
     public static final DeferredItem<BlockItem> BALLOON_BURNER_ITEM = ITEMS.registerSimpleBlockItem(BALLOON_BURNER);
     public static final DeferredItem<BlockItem> PROPELLER_ITEM = ITEMS.registerSimpleBlockItem(PROPELLER);
+    public static final DeferredItem<BlockItem> HARVESTER_ITEM = ITEMS.registerSimpleBlockItem(HARVESTER);
+    public static final DeferredItem<BlockItem> KELP_DRYER_ITEM = ITEMS.registerSimpleBlockItem(KELP_DRYER);
     public static final Map<DyeColor, DeferredItem<BlockItem>> ENVELOPE_ITEMS = new EnumMap<>(DyeColor.class);
     static {
         ENVELOPES.forEach((color, block) -> ENVELOPE_ITEMS.put(color, ITEMS.registerSimpleBlockItem(block)));
@@ -120,6 +129,8 @@ public final class AirTransport {
                 output.accept(PASSENGER_SEAT_ITEM.get());
                 output.accept(BALLOON_BURNER_ITEM.get());
                 output.accept(PROPELLER_ITEM.get());
+                output.accept(HARVESTER_ITEM.get());
+                output.accept(KELP_DRYER_ITEM.get());
                 for (DyeColor color : DyeColor.values()) output.accept(ENVELOPE_ITEMS.get(color).get());
                 output.accept(PAD_BEACON_ITEM.get());
                 output.accept(LANDING_PAD_ITEM.get());

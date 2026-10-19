@@ -8,7 +8,9 @@ import com.ltw.airtransport.entity.AirshipEntity;
 import com.ltw.airtransport.pad.PadRegistry;
 import com.ltw.airtransport.ship.ShipAssembler;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import javax.annotation.Nullable;
 import net.minecraft.core.BlockPos;
@@ -18,6 +20,8 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.network.PacketDistributor;
@@ -38,6 +42,9 @@ public final class AirNetwork {
         r.playToClient(OpenPadName.TYPE, OpenPadName.CODEC, (p, ctx) -> ctx.enqueueWork(() -> ClientHooks.openPadName(p.pos(), p.name())));
         r.playToClient(PanelData.TYPE, PanelData.CODEC, (p, ctx) -> ctx.enqueueWork(() -> ClientHooks.showPanel(p)));
         r.playToClient(CloseScreen.TYPE, CloseScreen.CODEC, (p, ctx) -> ctx.enqueueWork(ClientHooks::closeScreen));
+        r.playToClient(ShipBlocks.TYPE, ShipBlocks.CODEC, (p, ctx) -> ctx.enqueueWork(() -> {
+            if (ctx.player().level().getEntity(p.entityId()) instanceof AirshipEntity ship) ship.applyBlockChanges(p.changes());
+        }));
         r.playToServer(RenamePad.TYPE, RenamePad.CODEC, AirNetwork::handleRenamePad);
         r.playToServer(PanelAction.TYPE, PanelAction.CODEC, AirNetwork::handlePanelAction);
         r.playToServer(ShipInteract.TYPE, ShipInteract.CODEC, AirNetwork::handleShipInteract);
@@ -142,6 +149,25 @@ public final class AirNetwork {
             (buf, p) -> { buf.writeVarInt(p.entityId); buf.writeFloat(p.forward); buf.writeFloat(p.strafe); buf.writeByte(p.turn); buf.writeFloat(p.vertical); },
             buf -> new CaptainInput(buf.readVarInt(), buf.readFloat(), buf.readFloat(), buf.readByte(), buf.readFloat()));
         @Override public Type<CaptainInput> type() { return TYPE; }
+    }
+
+    /** Ship blocks that changed in flight (crops grew, a harvester cut kelp). Air means removed. */
+    public record ShipBlocks(int entityId, Map<BlockPos, BlockState> changes) implements CustomPacketPayload {
+        public static final Type<ShipBlocks> TYPE = new Type<>(AirTransport.id("ship_blocks"));
+        public static final StreamCodec<RegistryFriendlyByteBuf, ShipBlocks> CODEC = StreamCodec.of(
+            (buf, p) -> {
+                buf.writeVarInt(p.entityId);
+                buf.writeVarInt(p.changes.size());
+                p.changes.forEach((pos, state) -> { buf.writeBlockPos(pos); buf.writeVarInt(Block.getId(state)); });
+            },
+            buf -> {
+                int id = buf.readVarInt();
+                int n = buf.readVarInt();
+                Map<BlockPos, BlockState> changes = new LinkedHashMap<>();
+                for (int i = 0; i < n; i++) changes.put(buf.readBlockPos(), Block.stateById(buf.readVarInt()));
+                return new ShipBlocks(id, changes);
+            });
+        @Override public Type<ShipBlocks> type() { return TYPE; }
     }
 
     public record CloseScreen() implements CustomPacketPayload {

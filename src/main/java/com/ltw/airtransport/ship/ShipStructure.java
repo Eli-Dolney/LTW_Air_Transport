@@ -46,6 +46,9 @@ public final class ShipStructure {
     private double weight;
     private final List<BlockPos> seats = new ArrayList<>();
     private final List<BlockPos> burnerPositions = new ArrayList<>();
+    private final List<BlockPos> farmPositions = new ArrayList<>();
+    private final List<BlockPos> harvesters = new ArrayList<>();
+    private final List<BlockPos> dryers = new ArrayList<>();
     @Nullable private BlockPos captainSeat;
     @SuppressWarnings("unchecked")
     private final List<Box>[] boxes = new List[4];
@@ -54,6 +57,16 @@ public final class ShipStructure {
     public void put(BlockPos local, BlockState state, @Nullable CompoundTag beTag) {
         blocks.put(local.immutable(), state);
         if (beTag != null) blockEntities.put(local.immutable(), beTag);
+    }
+
+    /** Changes one block in place (air removes it). Call {@link #recompute} after a batch of these. */
+    public void set(BlockPos local, BlockState state) {
+        if (state.isAir()) {
+            blocks.remove(local);
+            blockEntities.remove(local);
+        } else {
+            blocks.put(local.immutable(), state);
+        }
     }
 
     public Map<BlockPos, BlockState> blocks() { return blocks; }
@@ -67,6 +80,10 @@ public final class ShipStructure {
     public double weight() { return weight; }
     public List<BlockPos> seats() { return seats; }
     public List<BlockPos> burnerPositions() { return burnerPositions; }
+    /** Plants that grow in flight. */
+    public List<BlockPos> farmPositions() { return farmPositions; }
+    public List<BlockPos> harvesters() { return harvesters; }
+    public List<BlockPos> dryers() { return dryers; }
     @Nullable public BlockPos captainSeat() { return captainSeat; }
 
     public boolean isCaptainSeat(BlockPos local) {
@@ -79,6 +96,9 @@ public final class ShipStructure {
         weight = 0;
         seats.clear();
         burnerPositions.clear();
+        farmPositions.clear();
+        harvesters.clear();
+        dryers.clear();
         captainSeat = null;
         for (Map.Entry<BlockPos, BlockState> e : blocks.entrySet()) {
             Block block = e.getValue().getBlock();
@@ -88,7 +108,13 @@ public final class ShipStructure {
                 continue;
             }
             weight += 1;
-            if (block instanceof BurnerBlock) {
+            if (ShipFarming.isFarmable(e.getValue())) {
+                farmPositions.add(e.getKey());
+            } else if (block == AirTransport.HARVESTER.get()) {
+                harvesters.add(e.getKey());
+            } else if (block == AirTransport.KELP_DRYER.get()) {
+                dryers.add(e.getKey());
+            } else if (block instanceof BurnerBlock) {
                 burners++;
                 burnerPositions.add(e.getKey());
             } else if (block instanceof PropellerBlock) {

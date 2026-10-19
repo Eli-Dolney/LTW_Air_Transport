@@ -71,7 +71,79 @@ public final class ShipAssembler {
             }
         }
         if (panel == null) return new Scan(null, null, Component.translatable("message.ltwairtransport.no_panel"));
+        Component waterProblem = addTankWater(level, seen, max);
+        if (waterProblem != null) return new Scan(null, null, waterProblem);
         return new Scan(seen, panel, null);
+    }
+
+    /** A still water block, the only liquid a ship carries. */
+    public static boolean isWaterSource(BlockState state) {
+        return state.is(Blocks.WATER) && state.getFluidState().isSource();
+    }
+
+    /** Ship plants that live in water: their water has to fly too, or it stays behind in the world. */
+    private static boolean needsWater(BlockState state) {
+        return state.is(Blocks.KELP) || state.is(Blocks.KELP_PLANT) || state.is(Blocks.SEAGRASS) || state.is(Blocks.TALL_SEAGRASS);
+    }
+
+    /**
+     * Adds water held in tanks on the ship to {@code ship}. A body of still water touching the ship is
+     * a tank when every side and the bottom of each of its blocks is a ship block or more of the same
+     * water (the top may be open to air). Anything else (a lake, the sea, a leaking tank) stays in the
+     * world, and the flood fill stops at the first open side, so it never wanders into an ocean. Returns
+     * an error if kelp or seagrass on the ship sits in water that isn't a tank, since taking off would
+     * leave that water hanging in the world or take part of a lake.
+     */
+    @Nullable
+    private static Component addTankWater(Level level, Set<BlockPos> ship, int max) {
+        Set<BlockPos> tank = new HashSet<>();
+        Set<BlockPos> open = new HashSet<>();
+        for (BlockPos pos : List.copyOf(ship)) {
+            for (Direction dir : Direction.values()) {
+                BlockPos seed = pos.relative(dir);
+                if (ship.contains(seed) || tank.contains(seed) || open.contains(seed)) continue;
+                if (!level.isLoaded(seed) || !isWaterSource(level.getBlockState(seed))) continue;
+                Set<BlockPos> body = new HashSet<>();
+                if (floodTank(level, seed, ship, open, body, max - ship.size() - tank.size())) tank.addAll(body);
+                else open.addAll(body);
+            }
+        }
+        for (BlockPos pos : ship) {
+            if (!needsWater(level.getBlockState(pos))) continue;
+            for (Direction dir : Direction.values()) {
+                BlockPos n = pos.relative(dir);
+                if (!ship.contains(n) && !tank.contains(n) && level.isLoaded(n) && isWaterSource(level.getBlockState(n))) {
+                    return Component.translatable("message.ltwairtransport.open_water", n.getX(), n.getY(), n.getZ());
+                }
+            }
+        }
+        if (ship.size() + tank.size() > max) return Component.translatable("message.ltwairtransport.too_big", max);
+        ship.addAll(tank);
+        return null;
+    }
+
+    /** Fills {@code body} from {@code seed}; false as soon as the water turns out not to be a closed tank. */
+    private static boolean floodTank(Level level, BlockPos seed, Set<BlockPos> ship, Set<BlockPos> open, Set<BlockPos> body, int limit) {
+        ArrayDeque<BlockPos> queue = new ArrayDeque<>();
+        body.add(seed);
+        queue.add(seed);
+        while (!queue.isEmpty()) {
+            BlockPos pos = queue.poll();
+            for (Direction dir : Direction.values()) {
+                BlockPos n = pos.relative(dir);
+                if (ship.contains(n) || body.contains(n)) continue;
+                if (open.contains(n) || !level.isLoaded(n)) return false;
+                BlockState state = level.getBlockState(n);
+                if (isWaterSource(state)) {
+                    if (body.size() >= limit) return false; // too big to be a tank on this ship: a lake or the sea
+                    body.add(n);
+                    queue.add(n);
+                } else if (!(dir == Direction.UP && state.isAir())) {
+                    return false; // open side, ground, or water flowing away
+                }
+            }
+        }
+        return true;
     }
 
     private static boolean canInclude(Level level, BlockPos pos) {
@@ -224,11 +296,15 @@ public final class ShipAssembler {
         }
         ship.ejectPassengers();
 
-        for (Map.Entry<BlockPos, BlockState> e : structure.blocks().entrySet()) {
-            BlockPos target = base.offset(e.getKey().rotate(rot));
-            BlockState state = e.getValue().rotate(rot);
-            if (state.getBlock() instanceof BurnerBlock) state = state.setValue(BurnerBlock.LIT, false);
-            level.setBlock(target, state, QUIET);
+        // Water goes in last, once the tank walls around it are back.
+        for (boolean water : new boolean[] {false, true}) {
+            for (Map.Entry<BlockPos, BlockState> e : structure.blocks().entrySet()) {
+                if (isWaterSource(e.getValue()) != water) continue;
+                BlockPos target = base.offset(e.getKey().rotate(rot));
+                BlockState state = e.getValue().rotate(rot);
+                if (state.getBlock() instanceof BurnerBlock) state = state.setValue(BurnerBlock.LIT, false);
+                level.setBlock(target, state, QUIET);
+            }
         }
         for (Map.Entry<BlockPos, CompoundTag> e : structure.blockEntities().entrySet()) {
             BlockPos target = base.offset(e.getKey().rotate(rot));

@@ -36,14 +36,43 @@ packs in mind: move loot between bases without walking through the horde.
 - Ships always face one of the four compass directions (turns are animated), and they drift like a real
   balloon.
 
+## Flying farms
+Farms built on a ship keep growing while it flies, so a ship with a kelp farm can make its own fuel and
+stay up forever.
+- **Growth:** wheat, carrots, potatoes, beetroot, nether wart, sweet berries, kelp, sugar cane, cactus
+  and bamboo grow in flight, as fast as they would in the world (it follows the `randomTickSpeed` game
+  rule). Kelp, sugar cane and bamboo grow upward into empty space, as long as nothing in the world is in
+  the way. Cane and cactus stop at 3 blocks, kelp and bamboo at 16. Crops grow faster on wet farmland.
+  Grown blocks count toward the ship's weight, so let a harvester keep them short.
+- **Harvester:** put it next to your plants with a chest touching it. Once a second in flight it picks
+  ripe crops (and replants them) and cuts kelp, sugar cane, bamboo and cactus above the bottom block,
+  putting everything into the chest. Put it at the second block of a column, like a piston farm. If the
+  chest is full, it leaves the plants standing.
+- **Kelp Dryer:** put it against a chest. Once a second in flight it turns 9 kelp in that chest into a
+  dried kelp block. Burners already take fuel from chests on board, so harvester -> chest <- dryer
+  keeps the burners fed.
+- Fuel math: one kelp column grows about one block every 8 minutes at the default tick speed, and a
+  dried kelp block burns for 200 seconds. That's about 22 kelp columns per burner to break even, so build
+  a wide kelp bed, or raise `growthMultiplier` in the config.
+- **Water tanks:** still water flies with the ship when it sits in a tank: every side and the bottom of
+  the water touches ship blocks or more of the same water (the top can be open). The walls must join the
+  ship through blocks, so fill in the corners. The water lands back where it was, has no collision, and
+  each water block weighs 1 like any other block. Kelp grows up through tank water, and kelp cut inside
+  the tank leaves water behind. Water that isn't walled in (a lake, the sea,
+  a leaky tank) always stays in the world. If kelp or seagrass on the ship touches water like that, the
+  ship won't take off and tells you which water block to wall in.
+- Kelp grows on a ship without water too. Kelp outside a tank that lands somewhere with no water pops
+  off the next time a block next to it changes, like it would in the world.
+- Harvesters and dryers only work on a flying ship. Placed in the world, they do nothing.
+
 ## Config
 `world/serverconfig/ltwairtransport-server.toml` sets max ship size, lift and weight values, fuel use,
-speeds, cruise clearance, route wait time and chunk loading.
+speeds, cruise clearance, route wait time, chunk loading, and how fast and how tall farms grow in flight.
 
 ## Development
 ```
 ./gradlew build              # jar in build/libs
 ./gradlew runClient
-./gradlew runGameTestServer  # assembly / landing / fuel / deck-riding tests
+./gradlew runGameTestServer  # assembly / landing / fuel / deck-riding / flying-farm tests
 python tools/gen_assets.py . # regenerates textures, models, recipes, loot tables
 ```

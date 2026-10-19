@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "top": "ltwairtransport:block/kelp_dryer_top",
+    "bottom": "ltwairtransport:block/kelp_dryer_top",
+    "side": "ltwairtransport:block/kelp_dryer_side"
+  }
+}

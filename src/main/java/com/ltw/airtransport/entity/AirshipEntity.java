@@ -14,6 +14,7 @@ import com.ltw.airtransport.pad.PadRegistry;
 import com.ltw.airtransport.ship.ShipAssembler;
 import com.ltw.airtransport.ship.ShipChunkLoading;
 import com.ltw.airtransport.ship.ShipCollision;
+import com.ltw.airtransport.ship.ShipFarming;
 import com.ltw.airtransport.ship.ShipFlight;
 import com.ltw.airtransport.ship.ShipRegistry;
 import com.ltw.airtransport.ship.ShipStructure;
@@ -28,6 +29,7 @@ import java.util.UUID;
 import java.util.function.Function;
 import javax.annotation.Nullable;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtUtils;
@@ -54,7 +56,9 @@ import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.inventory.SimpleContainerData;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.AbstractFurnaceBlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
@@ -62,6 +66,7 @@ import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.entity.IEntityWithComplexSpawn;
+import net.neoforged.neoforge.network.PacketDistributor;
 
 /**
  * A flying ship made of real blocks. It sits at the bottom-center of its Control Panel block and
@@ -102,6 +107,7 @@ public class AirshipEntity extends Entity implements IEntityWithComplexSpawn {
     private int groundedTicks;
     private int blockedTicks;
     private Set<Long> heldChunks = new HashSet<>();
+    private double growBudget;
 
     // Deck entities held in place while the ship turns
     private final Map<Entity, Vec3> turnLocks = new HashMap<>();
@@ -492,6 +498,7 @@ public class AirshipEntity extends Entity implements IEntityWithComplexSpawn {
                 && ShipCollision.isOnDeck(this, e, oldPos, oldQuadrant));
 
         burnFuel();
+        farmTick(level);
         double lift = ShipFlight.liftCapacity(structure.envelopes(), litBurners);
         double ratio = structure.weight() <= 0 ? 1 : lift / structure.weight();
         entityData.set(DATA_BURNING, litBurners > 0);
@@ -587,6 +594,115 @@ public class AirshipEntity extends Entity implements IEntityWithComplexSpawn {
             }
         }
         return total;
+    }
+
+    // --- Flying farms -------------------------------------------------------------------------
+    /**
+     * Random-ticks plants on board as densely as the world does (randomTickSpeed per 16^3 blocks)
+     * and runs harvesters and kelp dryers once a second.
+     */
+    private void farmTick(ServerLevel level) {
+        Map<BlockPos, BlockState> changes = new LinkedHashMap<>();
+        int plants = structure.farmPositions().size();
+        if (plants > 0) {
+            int speed = level.getGameRules().getInt(GameRules.RULE_RANDOMTICKING);
+            growBudget = Math.min(growBudget + plants * speed * AirConfig.FARM_GROWTH_MULTIPLIER.get() / 4096.0, 64);
+            for (; growBudget >= 1; growBudget--) growRandomPlant(level, changes);
+        } else {
+            growBudget = 0;
+        }
+        if (tickCount % 20 == 0) runFarmMachines(level, changes);
+        commitBlockChanges(changes);
+    }
+
+    private void growRandomPlant(ServerLevel level, Map<BlockPos, BlockState> changes) {
+        List<BlockPos> plants = structure.farmPositions();
+        if (plants.isEmpty()) return;
+        BlockPos local = plants.get(random.nextInt(plants.size()));
+        ShipFarming.randomTick(structure, local, random, p -> roomFor(level, p), changes);
+    }
+
+    /** Can a plant grow into ship-local {@code local}? It must be empty on the ship and clear in the world. */
+    private boolean roomFor(ServerLevel level, BlockPos local) {
+        if (structure.blocks().containsKey(local)) return false;
+        BlockPos r = local.rotate(ShipStructure.rotation(quadrant()));
+        AABB box = new AABB(r.getX() - 0.5, r.getY(), r.getZ() - 0.5, r.getX() + 0.5, r.getY() + 1, r.getZ() + 0.5)
+            .move(position()).deflate(1.0E-3);
+        for (AABB solid : ShipFlight.worldSolids(level, box)) {
+            if (solid.intersects(box)) return false;
+        }
+        return true;
+    }
+
+    /** Harvesters put ripe crops into a chest next to them; kelp dryers turn kelp in a chest next to them into dried kelp blocks. */
+    private void runFarmMachines(ServerLevel level, Map<BlockPos, BlockState> changes) {
+        for (BlockPos harvester : structure.harvesters()) {
+            Container out = adjacentContainer(harvester);
+            if (out == null) continue;
+            BlockPos origin = BlockPos.containing(position().add(ShipStructure.rotate(harvester.getX(), harvester.getY(), harvester.getZ(), getYRot())));
+            for (Direction dir : Direction.values()) {
+                ShipFarming.Harvest harvest = ShipFarming.planHarvest(structure, harvester.relative(dir));
+                if (harvest == null) continue;
+                ItemStack[] items = ShipFarming.snapshot(out);
+                boolean fits = true;
+                for (BlockState cut : harvest.cut()) {
+                    for (ItemStack drop : Block.getDrops(cut, level, origin, null)) fits &= ShipFarming.insert(out, items, drop);
+                }
+                if (!fits) break; // chest is full: leave the crop standing
+                ShipFarming.writeBack(out, items);
+                ShipFarming.apply(structure, harvest.result(), changes);
+            }
+        }
+        for (BlockPos dryer : structure.dryers()) {
+            for (Direction dir : Direction.values()) {
+                if (blockEntities.get(dryer.relative(dir)) instanceof Container c && !(c instanceof BurnerBlockEntity)) ShipFarming.dryKelp(c);
+            }
+        }
+    }
+
+    @Nullable
+    private Container adjacentContainer(BlockPos local) {
+        for (Direction dir : Direction.values()) {
+            if (blockEntities.get(local.relative(dir)) instanceof Container c && !(c instanceof BurnerBlockEntity)) return c;
+        }
+        return null;
+    }
+
+    /** After blocks changed in flight: rebuild counts and collision, then tell watching clients. */
+    private void commitBlockChanges(Map<BlockPos, BlockState> changes) {
+        if (changes.isEmpty()) return;
+        changes.forEach((pos, state) -> { if (state.isAir()) blockEntities.remove(pos); });
+        structure.recompute();
+        setBoundingBox(makeBoundingBox());
+        PacketDistributor.sendToPlayersTrackingEntity(this, new AirNetwork.ShipBlocks(getId(), new LinkedHashMap<>(changes)));
+    }
+
+    /** Client side of {@link #commitBlockChanges}. */
+    public void applyBlockChanges(Map<BlockPos, BlockState> changes) {
+        changes.forEach((pos, state) -> {
+            structure.set(pos, state);
+            if (state.isAir()) blockEntities.remove(pos);
+        });
+        structure.recompute();
+        setBoundingBox(makeBoundingBox());
+    }
+
+    /** Gives {@code count} random ticks to plants on board right away (the ship does this by itself in flight). */
+    public void growPlants(int count) {
+        if (!(level() instanceof ServerLevel level)) return;
+        for (int i = 0; i < count; i++) {
+            Map<BlockPos, BlockState> changes = new LinkedHashMap<>();
+            growRandomPlant(level, changes);
+            commitBlockChanges(changes);
+        }
+    }
+
+    /** Runs harvesters and kelp dryers once right away (the ship does this every second in flight). */
+    public void runFarmMachines() {
+        if (!(level() instanceof ServerLevel level)) return;
+        Map<BlockPos, BlockState> changes = new LinkedHashMap<>();
+        runFarmMachines(level, changes);
+        commitBlockChanges(changes);
     }
 
     // --- Steering -----------------------------------------------------------------------------

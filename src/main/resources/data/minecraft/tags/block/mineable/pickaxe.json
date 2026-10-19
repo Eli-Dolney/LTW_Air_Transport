@@ -2,6 +2,8 @@
   "values": [
     "ltwairtransport:landing_pad",
     "ltwairtransport:pad_beacon",
-    "ltwairtransport:balloon_burner"
+    "ltwairtransport:balloon_burner",
+    "ltwairtransport:harvester",
+    "ltwairtransport:kelp_dryer"
   ]
 }
